@@ -14,8 +14,8 @@
 3.Server：后端服务器
 
 3.Robot：客户端压力测试程序
-
 <br><img src='image/1.png'><br>
+<br><img src='image/3.png'><br>
 
 
 ## 实现流程
