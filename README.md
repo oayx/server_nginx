@@ -15,6 +15,8 @@
 
 3.Robot：客户端压力测试程序
 
+<br><img src='image/1.png'><br>
+
 
 ## 实现流程
 
@@ -44,7 +46,3 @@
 ## 其他说明
 1.根据ip获得所在的省份，用的是GeoLite2库，数据截止时间是(2023.8月)，这个网站可以获得最新的数据https://github.com/P3TERX/GeoLite.mmdb/releases
 <br><img src='image/2.png'><br>
-
-
-## 效果演示
-<br><img src='image/1.png'><br>
