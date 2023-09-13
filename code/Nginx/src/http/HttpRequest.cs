@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
@@ -23,15 +22,13 @@ namespace YX
                 //Console.WriteLine(clientIP);
 
                 //解析参数
-                var args = new Dictionary<string, string>();
-                args.Add("ip", clientIP);
-                var queryString = httpContext.Request.QueryString;
-                for (int i = 0; i < queryString.Count; ++i)
-                {
-                    args.Add(queryString.GetKey(i), queryString.Get(i));
-                }
+                //var queryString = httpContext.Request.QueryString;
+                //for (int i = 0; i < queryString.Count; ++i)
+                //{
+                //    _args.Add(queryString.GetKey(i), queryString.Get(i));
+                //}
 
-                var server = InternalServer.GetServer(args);
+                var server = InternalServer.GetServer(clientIP);
                 string response = "";
                 if(string.IsNullOrEmpty(server.Key))
                 {

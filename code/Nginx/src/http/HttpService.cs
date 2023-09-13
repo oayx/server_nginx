@@ -30,16 +30,13 @@ namespace YX
 
         public void Setup()
         {
-            string port = Utils.GetConfigValue("port_for_server");
+            string port = Utils.GetConfigValue("port");
             Console.WriteLine("port:" + port);
-
-            //打开端口
-            this.AddFireWallPort(port.ToUShort());
-
+            
             //TODO:为了防止无效请求，需要增加安全措施
             _httpListerner = new HttpListener();
             _httpListerner.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
-            _httpListerner.Prefixes.Add("http://*:" + port + "/");
+            _httpListerner.Prefixes.Add("http://+:" + port + "/");
         }
         public void Destroy()
         {
@@ -55,20 +52,6 @@ namespace YX
 
             //启动新线程处理逻辑
             new Thread(new ThreadStart(OnRequestThread)).Start();
-        }
-        /// <summary>
-        /// 防火墙打开端口
-        /// </summary>
-        /// <param name="port"></param>
-        private void AddFireWallPort(int port)
-        {
-            string argsDll = String.Format(@"firewall set portopening TCP {0} ENABLE", port);
-            System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo("netsh", argsDll);
-            psi.Verb = "runas";
-            psi.CreateNoWindow = true;
-            psi.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
-            psi.UseShellExecute = false;
-            System.Diagnostics.Process.Start(psi).WaitForExit();
         }
         /// <summary>
         /// 处理请求
@@ -88,13 +71,6 @@ namespace YX
                     {//post处理内网服务器上报信息
                         _requests.PushPost(httpListenerContext);
                     }
-
-                    //响应
-                    //httpListenerContext.Response.StatusCode = 200;
-                    //using (StreamWriter writer = new StreamWriter(httpListenerContext.Response.OutputStream))
-                    //{
-                    //    writer.Write(((int)ResponseCode.Succeed).ToString());
-                    //}
                 }
                 catch(Exception e)
                 {
@@ -117,7 +93,6 @@ namespace YX
                     }
                 }
             }
-            Thread.Sleep(10);
         }
     }
 }

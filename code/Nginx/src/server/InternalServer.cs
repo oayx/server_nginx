@@ -37,6 +37,14 @@ namespace YX
         /// 收集到的服务器信息,key(ip,port),value(客户端连接数)
         /// </summary>
         private static Dictionary<KeyValuePair<string, ushort>, uint> _serverInfos = new Dictionary<KeyValuePair<string, ushort>, uint>();
+        /// <summary>
+        /// 最少连接数的服务器
+        /// </summary>
+        private static List<int> _minConnectServers = new List<int>();
+        /// <summary>
+        /// 服务器权重列表
+        /// </summary>
+        private static List<KeyValuePair<int, uint>> _weightServers = new List<KeyValuePair<int, uint>>();
 
         /// <summary>
         /// 地址映射成ip
@@ -46,6 +54,8 @@ namespace YX
         static InternalServer()
         {
             LoadConfig();
+            UpdateMinConnects();
+            UpdateWeightServers();
         }
         /// <summary>
         /// 加载配置信息
@@ -103,7 +113,7 @@ namespace YX
             }
         }
 
-        public static KeyValuePair<string, ushort> GetServer(Dictionary<string, string> args)
+        public static KeyValuePair<string, ushort> GetServer(string clientIP)
         {
             KeyValuePair<string, ushort> selectServer = new KeyValuePair<string, ushort>("", 0);
 
@@ -126,49 +136,41 @@ namespace YX
                     break;
                 case "least_conn"://最少连接数
                     {
-                        //第一步查找最少连接
-                        uint minValue = uint.MaxValue;
-                        for(int i = 0; i < _servers.Count; ++i)
+                        if(_minConnectServers.Count > 0)
                         {
-                            if (_servers[i].Valid && _servers[i].Count < minValue)
-                                minValue = _servers[i].Count;
+                            //随机取一个
+                            int index = Utils.RandRange_List(_minConnectServers);
+                            var info = _servers[index];
+                            selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
                         }
-
-                        //最少连接可能有多个，存储到这，然后随机取一个
-                        var minLists = new List<int>();
-                        for (int i = 0; i < _servers.Count; ++i)
+                        else
                         {
-                            if (_servers[i].Valid && _servers[i].Count == minValue)
-                                minLists.Add(i);
+                            Console.WriteLine("最少连接数列表为空");
                         }
-
-                        //随机取一个
-                        int index = Utils.RandRange_List(minLists);
-                        var info = _servers[index];
-                        selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
                     }
                     break;
                 case "weight"://权重
                     {
-                        var weightLists = new List<KeyValuePair<int, uint>>();
-                        for (int i = 0; i < _servers.Count; ++i)
+                        if(_weightServers.Count > 0)
                         {
-                            if (_servers[i].Valid)
-                                weightLists.Add(new KeyValuePair<int, uint>(i, _servers[i].Weight));
+                            var index = Utils.RandRange_Percent(_weightServers);
+                            var info = _servers[index];
+                            selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
                         }
-                        var index = Utils.RandRange_Percent(weightLists);
-                        var info = _servers[index];
-                        selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
+                        else
+                        {
+                            Console.WriteLine("服务器权重列表为空");
+                        }
                     }
                     break;
                 case "ip_hash"://ip地址映射
                     {
                         bool isSelect = false;
-                        if(args.TryGetValue("ip", out var ip))
+                        if(!string.IsNullOrEmpty(clientIP))
                         {
-                            if (ip != "127.0.0.1" && ip != "::1" && !ip.StartsWith("192.168"))
+                            if (clientIP != "127.0.0.1" && clientIP != "::1" && !clientIP.StartsWith("192.168"))
                             {//排除内网ip
-                                if (_databaseReader.TryCity(ip, out var response))
+                                if (_databaseReader.TryCity(clientIP, out var response))
                                 {//获得省份，也可以改成City(城市)，还可以获得国家
                                     string cityName = response.MostSpecificSubdivision.Name.ToLower();
                                     if(_idmaps.TryGetValue(cityName, out var host))
@@ -183,22 +185,22 @@ namespace YX
                                 }
                                 else
                                 {
-                                    Console.WriteLine("GeoLite2 parse ip error:" + ip);
+                                    Console.WriteLine("GeoLite2 parse ip error:" + clientIP);
                                 }
                             }
                         }
                         if(!isSelect)
-                        {//随机一个
-                            var lists = new List<int>();
-                            for (int i = 0; i < _servers.Count; ++i)
+                        {//分配一个最少连接服务器
+                            if (_minConnectServers.Count > 0)
                             {
-                                if (_servers[i].Valid)
-                                    lists.Add(i);
+                                int index = Utils.RandRange_List(_minConnectServers);
+                                var info = _servers[index];
+                                selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
                             }
-
-                            int index = Utils.RandRange_List(lists);
-                            var info = _servers[index];
-                            selectServer = new KeyValuePair<string, ushort>(info.IP, info.Port);
+                            else
+                            {
+                                Console.WriteLine("最少连接数列表为空");
+                            }
                         }
                     }
                     break;
@@ -234,7 +236,45 @@ namespace YX
                     break;
                 }
             }
+            if(isFind)
+            {
+                UpdateMinConnects();
+                UpdateWeightServers();
+            }
             return isFind;
+        }
+        /// <summary>
+        /// 更新最少连接数列表
+        /// </summary>
+        private static void UpdateMinConnects()
+        {
+            //第一步查找最少连接
+            uint minValue = uint.MaxValue;
+            for (int i = 0; i < _servers.Count; ++i)
+            {
+                if (_servers[i].Valid && _servers[i].Count < minValue)
+                    minValue = _servers[i].Count;
+            }
+
+            //最少连接可能有多个，存储到这，然后随机取一个
+            _minConnectServers.Clear();
+            for (int i = 0; i < _servers.Count; ++i)
+            {
+                if (_servers[i].Valid && _servers[i].Count == minValue)
+                    _minConnectServers.Add(i);
+            }
+        }
+        /// <summary>
+        /// 更新服务器权重
+        /// </summary>
+        private static void UpdateWeightServers()
+        {
+            _weightServers.Clear();
+            for (int i = 0; i < _servers.Count; ++i)
+            {
+                if (_servers[i].Valid)
+                    _weightServers.Add(new KeyValuePair<int, uint>(i, _servers[i].Weight));
+            }
         }
         public static void DebugServerState()
         {
